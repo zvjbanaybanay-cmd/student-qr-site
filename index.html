@@ -45,8 +45,8 @@
         <h1 class="hero display">Get your<br>attendance QR</h1>
         <p class="lede">Register once. Save the code. Show it at every event.</p>
         <div class="panel">
-          <div class="field"><label>Full name</label><input id="in-name" type="text" placeholder="Dela Cruz, Juan" /></div>
-          <div class="field"><label>Student number (optional)</label><input id="in-num" type="text" placeholder="2026-00123" /></div>
+          <div class="field"><label>Full name (Last name, Given name, Middle Initial</label><input id="in-name" type="text" placeholder="  " /></div>
+          <div class="field"><label>ID number (5 digits) (optional)</label><input id="in-num" type="text" placeholder="  " /></div>
           ${err ? `<div class="error-text">${esc(err)}</div>` : ''}
           <button class="btn" id="btn-register">Generate my QR code</button>
         </div>
