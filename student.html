@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BSIT 1A — Get your attendance QR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="student-style.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+  // ---- Firebase config: paste the SAME config used in the officer dashboard site ----
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const el = document.getElementById('app');
+  const LS_KEY = 'bsit1a-my-student';
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function saved(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){ return null; }
+  }
+
+  function renderRegister(err){
+    el.innerHTML = `
+      <header class="topbar"><span class="tag display">BSIT 1A</span><span class="sub mono">ATTENDANCE</span></header>
+      <div class="wrap">
+        <h1 class="hero display">Get your<br>attendance QR</h1>
+        <p class="lede">Register once. Save the code. Show it at every event.</p>
+        <div class="panel">
+          <div class="field"><label>Full name</label><input id="in-name" type="text" placeholder="Dela Cruz, Juan" /></div>
+          <div class="field"><label>Student number (optional)</label><input id="in-num" type="text" placeholder="2026-00123" /></div>
+          ${err ? `<div class="error-text">${esc(err)}</div>` : ''}
+          <button class="btn" id="btn-register">Generate my QR code</button>
+        </div>
+      </div>`;
+    document.getElementById('btn-register').onclick = onRegister;
+  }
+
+  async function onRegister(){
+    const name = document.getElementById('in-name').value.trim();
+    const number = document.getElementById('in-num').value.trim();
+    if(!name){ renderRegister('Please enter your full name.'); return; }
+    const btn = document.getElementById('btn-register');
+    btn.disabled = true; btn.textContent = 'Creating...';
+    try{
+      const ref = await addDoc(collection(db,'students'), {
+        name, number: number || null, createdAt: serverTimestamp()
+      });
+      const rec = { id: ref.id, name, number: number || null };
+      localStorage.setItem(LS_KEY, JSON.stringify(rec));
+      renderQR(rec);
+    }catch(e){
+      renderRegister('Something went wrong. Check your connection and try again.');
+      console.error(e);
+    }
+  }
+
+  function renderQR(rec){
+    el.innerHTML = `
+      <header class="topbar"><span class="tag display">BSIT 1A</span><span class="sub mono">ATTENDANCE</span></header>
+      <div class="wrap">
+        <h1 class="hero display" style="font-size:28px;">Your attendance code</h1>
+        <p class="lede">Screenshot or download this. An officer scans it at each event.</p>
+        <div class="id-card">
+          <div class="section-label mono">BSIT 1A &middot; STUDENT</div>
+          <div class="name display">${esc(rec.name)}</div>
+          <div class="sid mono">${rec.number ? esc(rec.number) : '&nbsp;'}</div>
+          <div id="qr-holder"></div>
+          <div class="hint mono">ID: ${esc(rec.id)}</div>
+        </div>
+        <div class="btn-row" style="margin-top:18px;">
+          <button class="btn secondary" id="btn-download">Download QR image</button>
+        </div>
+        <div style="margin-top:24px; text-align:center;">
+          <button class="link-btn" id="btn-reset">Not you? Register a different account</button>
+        </div>
+      </div>`;
+    const holder = document.getElementById('qr-holder');
+    new QRCode(holder, { text: rec.id, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    document.getElementById('btn-download').onclick = () => {
+      const canvas = holder.querySelector('canvas');
+      if(!canvas) return;
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'bsit1a-qr-' + rec.name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '.png';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    document.getElementById('btn-reset').onclick = () => {
+      if(confirm('This forgets your saved QR on this device. If you kept the downloaded image, that code still works. Continue?')){
+        localStorage.removeItem(LS_KEY);
+        renderRegister();
+      }
+    };
+  }
+
+  const existing = saved();
+  if(existing) renderQR(existing); else renderRegister();
+</script>
+</body>
+</html>
